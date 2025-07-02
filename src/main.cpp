@@ -2,8 +2,13 @@
 #include <SoftwareSerial.h>
 #include <NewPing.h>
 
-#define PIN_TRIG 8
-#define PIN_ECHO 12
+// Порты для сенсоров.
+#define PIN_TRIG_FRONT A1
+#define PIN_ECHO_FRONT A0
+#define PIN_TRIG_LEFT A3
+#define PIN_ECHO_LEFT A2
+#define PIN_TRIG_RIGHT A5
+#define PIN_ECHO_RIGHT A4
 
 #define PIN_TX 10
 #define PIN_RX 11
@@ -16,20 +21,26 @@
 #define PIN_IN3 5
 #define PIN_IN4 4
 
-#define MAX_DISTANCE 200
-#define STOP_DISTANCE 20
+#define MAX_DISTANCE 400
+#define STOP_DISTANCE 25 // было 20
 
-NewPing sonar(PIN_TRIG, PIN_ECHO, MAX_DISTANCE); // ультразвуковой датчик HC-SR04
-SoftwareSerial mySerial(PIN_TX, PIN_RX);         // модуль bluetooth HC-06
+// Сканеры (передний, левый, правый)
+NewPing sonarFront(PIN_TRIG_FRONT, PIN_ECHO_FRONT, MAX_DISTANCE);
+NewPing sonarLeft(PIN_TRIG_LEFT, PIN_ECHO_LEFT, MAX_DISTANCE);
+NewPing sonarRight(PIN_TRIG_RIGHT, PIN_ECHO_RIGHT, MAX_DISTANCE);
+
+SoftwareSerial mySerial(PIN_TX, PIN_RX); // модуль bluetooth HC-06
 
 char currentChar = ' ';
+bool autopilotMode = false;
 
 void driveForward();
 void turnRight();
 void turnLeft();
 void driveBack();
 void stopRobot();
-long checkDistance();
+void setAutopilotMode(char mode);
+long checkDistance(NewPing sonar);
 
 void setup()
 {
@@ -44,22 +55,26 @@ void setup()
 
 void loop()
 {
-  long distance = checkDistance();
+  long distanceFront = checkDistance(sonarFront);
+  long distanceLeft = checkDistance(sonarLeft);
+  long distanceRight = checkDistance(sonarRight);
+
   Serial.print("Distance: "); // Выводим расстояние
-  Serial.println(distance);
+  Serial.println(distanceFront);
 
-  if (distance < STOP_DISTANCE && distance != 0 && currentChar == 'F')
-  {
-    stopRobot();
-  }
+  // if (distance < STOP_DISTANCE && distance != 0 && currentChar == 'F')
+  // {
+  //   stopRobot();
+  // }
 
+  // Если мы принимаем сигнал от bluetooth, то обрабатываем входные символы с порта.
   if (mySerial.available())
   {
     currentChar = mySerial.read();
     mySerial.println(currentChar);
 
-    if (distance < STOP_DISTANCE && distance != 0 && currentChar == 'F')
-      return;
+    // if (distance < STOP_DISTANCE && distance != 0 && currentChar == 'F')
+    //   return;
 
     switch (currentChar)
     {
@@ -144,9 +159,24 @@ void stopRobot()
 }
 
 /*
+  Установка режима автопилота (вкл/выкл)
+*/
+void setAutopilotMode(char mode)
+{
+  if (mode == 'X')
+  {
+    autopilotMode = true;
+  }
+  else if (mode == 'x')
+  {
+    autopilotMode = false;
+  }
+}
+
+/*
  * Проверить дистанцию до возможного препятствия.
  */
-long checkDistance()
+long checkDistance(NewPing sonar)
 {
   delay(50);
   return sonar.ping_cm();
